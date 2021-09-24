@@ -1,0 +1,15 @@
+Instant Messaging Program Model
+ |__ client
+      |__ JavaScript/websockets
+      |__ Connect to server      
+	  |__ Register (requires passcode)
+          |__ Login
+          |__ Message in room (if logged in))
+          |__ Room fetches last X messages on fresh load
+ |__ backend (Python 3.6+)
+      |__ server loop
+	   |__ websockets/asyncio
+	   |__ Client class
+      |__ database
+	   |__ databases/sqlite
+	   |__ `users`, `messages` (sha256 hashing, possibly AES encryption)
