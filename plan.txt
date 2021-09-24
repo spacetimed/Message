@@ -13,3 +13,6 @@ Instant Messaging Program Model
       |__ database
 	   |__ databases/sqlite
 	   |__ `users`, `messages` (sha256 hashing, possibly AES encryption)
+
+References:
+     https://websockets.readthedocs.io/en/3.0/intro.html
