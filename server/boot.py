@@ -1,0 +1,22 @@
+import asyncio
+import Message.lib
+import websockets
+
+HOST = '127.0.0.1'
+PORT = 6943
+
+async def time(websocket, path):
+    while True:
+        await websocket.send('Websockets work fine.')
+
+start_server = websockets.serve(time, '127.0.0.1', 5678)
+
+if __name__ == '__main__':
+    MessageServer = Message.lib.Server(HOST, PORT)
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(MessageServer.start)
+        loop.run_forever()
+    except KeyboardInterrupt:
+        print('Exit')
+
