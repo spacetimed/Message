@@ -1,21 +1,22 @@
 import asyncio
 import websockets
+import json
 
 from colorama import Fore, Back, Style
 from time import time as getTimestamp
 from hashlib import sha256
 
-from typing import List
+from typing import List, Optional
 from typing import Type
 from typing import Any
 
 """
     To Do:
-    - Client logger subclass
     - Send connection successful message handshake, set local variables on client
     - Show login prompt
     - Make database tables (`users`, `messages[?]`)
 """
+
 
 class Server:
     
@@ -33,15 +34,7 @@ class Server:
         self.clients.append(Client(clientId, websocket, path, self))
         await self.clients[clientId].serve()
 
-        #if(clientId == 0):
-        #    await self.showClientList()
-
-    """async def showClientList(self):
-        while True:
-            print(self.clients)
-            await asyncio.sleep(1) """
-
-    def handleDisconnect(self, clientObject, clientId) -> None:
+    async def handleDisconnect(self, clientObject: Any, clientId: int) -> None:
         if clientObject in self.clients:
             self.clients.remove(clientObject)
         else:
@@ -61,13 +54,29 @@ class Client():
         self.log('New connection!')
 
     async def serve(self) -> None:
+        handshake = await self.makeHandshake()
+        await self.send('handshake', handshake)
         try:
             while True:
                 message = await self.websocket.recv()
-                print(self.clientHash, 'Recv=>', message)
+                await self.recv(message)
         except websockets.ConnectionClosed:
             self.log('Disconnect')
-            self.MasterServer.handleDisconnect(self, self.clientId)
+            await self.MasterServer.handleDisconnect(self, self.clientId)
+
+    async def makeHandshake(self) -> str:
+        handshake = {'clientId' : self.clientId, 'clientHash': self.clientHash}
+        handshake = json.dumps(handshake)
+        return handshake
+
+    async def send(self, type: str, data: dict) -> None:
+        local = {'type' : type, 'data' : data}
+        local = json.dumps(local)
+        self.log(f'SEND => {local}')
+        await self.websocket.send(local)
+
+    async def recv(self, message: str) -> None:
+        self.log(f'RECV <= {message}')
 
     def makeClientHash(self) -> str:
         toEncode = (str(getTimestamp()) + str(self.clientId)).encode('utf-8')

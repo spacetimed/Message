@@ -2,6 +2,7 @@ body {
     background-color:rgb(91, 97, 146);
     padding:0;
     margin:0;
+    font-family:'Arial';
 }
 
 .message_container {
@@ -38,6 +39,7 @@ body {
     animation:spin 1s infinite;
 }
 
+
 @keyframes spin {
     0% {
         transform:rotate(0deg);
@@ -45,6 +47,42 @@ body {
     100% {
         transform:rotate(360deg);
     }
+}
+
+.message_container > .content > .contentText {
+    height:100%;
+    width:100%;
+    overflow-y:scroll;
+    padding:10px;
+    box-sizing:border-box;
+}
+
+.message_container > .content > .contentText > ul {
+    margin:0;
+    padding:0;
+    list-style-type:none;
+}
+
+.message_container > .content > .contentText > ul > li {
+    padding:10px;
+    color:rgb(206, 206, 206);
+    border-bottom:1px solid rgba(255,255,255,0.1);
+}
+
+.message_container > .content > .contentText > ul > li:last-of-type {
+    border-bottom:none;
+}
+
+.message_container > .content > .contentText > ul > li > a.contentDate {
+    font-weight:700;
+    font-size:12px;
+    color:#cfcfff85;
+}
+
+.message_container > .content > .contentText > ul > li > a.contentMisc {
+    font-weight:700;
+    font-size:12px;
+    color: #ffffff;
 }
 
 .message_container > .chatbar {
