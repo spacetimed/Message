@@ -6,13 +6,15 @@ from colorama import Fore, Back, Style
 from time import time as getTimestamp
 from hashlib import sha256
 
-from typing import List, Optional
+from typing import Dict
+from typing import List
+from typing import Optional
 from typing import Type
 from typing import Any
+from typing import Union
 
 """
     To Do:
-    - Send connection successful message handshake, set local variables on client
     - Show login prompt
     - Make database tables (`users`, `messages[?]`)
 """
@@ -56,29 +58,27 @@ class Client():
         }
 
     def BroadcastHandler(commandFunc) -> None:
-        async def BroadcastWrapper(self, *args, **kwargs):
-            print('ARGS=>', args)
-            print('KWARGS=>', kwargs)
+        async def BroadcastWrapper(self, *args, **kwargs) -> None:
             if(len(self.MasterServer.clients) > 1):
                 for client in self.MasterServer.clients:
                     if client.clientId != self.clientId:
-                        messageObject = await commandFunc(self, *args)
+                        messageObject: Dict = await commandFunc(self, *args)
                         await client.send('message', messageObject)
             return None
         return BroadcastWrapper
 
     def CommandHandler(commandFunc) -> None:
-        async def CommandWrapper(self):
+        async def CommandWrapper(self) -> None:
             return await self.send('message', {'author' : 'Server', 'message' : await commandFunc(self)})
         return CommandWrapper
 
     async def serve(self) -> None:
-        handshake = await self.makeHandshake()
+        handshake: Dict = await self.makeHandshake()
         await self.send('handshake', handshake)
         await self.handleWelcome()
         try:
             while True:
-                message = await self.websocket.recv()
+                message: str = await self.websocket.recv()
                 await self.recv(message)
         except websockets.ConnectionClosed:
             self.log('Disconnect')
@@ -86,7 +86,7 @@ class Client():
             await self.MasterServer.handleDisconnect(self, self.clientId)
 
     async def makeHandshake(self) -> str:
-        handshake = {'clientId' : self.clientId, 'clientHash': self.clientHash}
+        handshake: Union[Dict, str] = {'clientId' : self.clientId, 'clientHash': self.clientHash}
         handshake = json.dumps(handshake)
         return handshake
 
@@ -95,24 +95,24 @@ class Client():
         return f'Number of active users: {str(len(self.MasterServer.clients))}'
 
     @BroadcastHandler
-    async def handleWelcome(self) -> None:
-        message = self.clientHash + ' has entered the chat.'
+    async def handleWelcome(self) -> str:
+        message: Union[Dict, str] = self.clientHash + ' has entered the chat.'
         message = {'author' : 'Server', 'message' : message}
         return(message)
 
     @BroadcastHandler
-    async def handleGoodbye(self) -> None:
-        message = self.clientHash + ' has left the chat.'
+    async def handleGoodbye(self) -> str:
+        message: Union[Dict, str] = self.clientHash + ' has left the chat.'
         message = {'author' : 'Server', 'message' : message}
         return(message)
 
     @BroadcastHandler
     async def handleSendMessage(self, message) -> None:
-        message = {'author' : self.clientHash, 'message' : message}
+        message: Dict = {'author' : self.clientHash, 'message' : message}
         return(message)
 
     async def send(self, type: str, data: dict) -> None:
-        local = {'type' : type, 'data' : data}
+        local: Union[Dict, str] = {'type' : type, 'data' : data}
         local = json.dumps(local)
         self.log(f'SEND => {local}')
         await self.websocket.send(local)
@@ -125,7 +125,7 @@ class Client():
             await self.handleSendMessage(message)
 
     def makeClientHash(self) -> str:
-        toEncode = (str(getTimestamp()) + str(self.clientId)).encode('utf-8')
+        toEncode: bytes = (str(getTimestamp()) + str(self.clientId)).encode('utf-8')
         return sha256(toEncode).hexdigest()[:8]
 
 
