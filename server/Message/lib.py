@@ -55,21 +55,35 @@ class Client():
             'users' : self.handleUsersCommand,
         }
 
+    def BroadcastHandler(commandFunc) -> None:
+        async def BroadcastWrapper(self, *args, **kwargs):
+            print('ARGS=>', args)
+            print('KWARGS=>', kwargs)
+            if(len(self.MasterServer.clients) > 1):
+                for client in self.MasterServer.clients:
+                    if client.clientId != self.clientId:
+                        messageObject = await commandFunc(self, *args)
+                        await client.send('message', messageObject)
+            return None
+        return BroadcastWrapper
+
+    def CommandHandler(commandFunc) -> None:
+        async def CommandWrapper(self):
+            return await self.send('message', {'author' : 'Server', 'message' : await commandFunc(self)})
+        return CommandWrapper
+
     async def serve(self) -> None:
         handshake = await self.makeHandshake()
         await self.send('handshake', handshake)
+        await self.handleWelcome()
         try:
             while True:
                 message = await self.websocket.recv()
                 await self.recv(message)
         except websockets.ConnectionClosed:
             self.log('Disconnect')
+            await self.handleGoodbye()
             await self.MasterServer.handleDisconnect(self, self.clientId)
-
-    def CommandHandler(commandFunc) -> None:
-        async def CommandWrapper(self):
-            return await self.send('message', {'author' : 'Server', 'message' : await commandFunc(self)})
-        return CommandWrapper
 
     async def makeHandshake(self) -> str:
         handshake = {'clientId' : self.clientId, 'clientHash': self.clientHash}
@@ -79,6 +93,23 @@ class Client():
     @CommandHandler
     async def handleUsersCommand(self) -> str:
         return f'Number of active users: {str(len(self.MasterServer.clients))}'
+
+    @BroadcastHandler
+    async def handleWelcome(self) -> None:
+        message = self.clientHash + ' has entered the chat.'
+        message = {'author' : 'Server', 'message' : message}
+        return(message)
+
+    @BroadcastHandler
+    async def handleGoodbye(self) -> None:
+        message = self.clientHash + ' has left the chat.'
+        message = {'author' : 'Server', 'message' : message}
+        return(message)
+
+    @BroadcastHandler
+    async def handleSendMessage(self, message) -> None:
+        message = {'author' : self.clientHash, 'message' : message}
+        return(message)
 
     async def send(self, type: str, data: dict) -> None:
         local = {'type' : type, 'data' : data}
@@ -91,11 +122,7 @@ class Client():
         if(message[0] == '/' and message[1:] in self.commands):
             await self.commands[message[1:]]()
         else:
-            if(len(self.MasterServer.clients) > 1):
-                for client in self.MasterServer.clients:
-                    if client.clientId != self.clientId:
-                        messageObject = {'author' : self.clientHash, 'message' : message}
-                        await client.send('message', messageObject)
+            await self.handleSendMessage(message)
 
     def makeClientHash(self) -> str:
         toEncode = (str(getTimestamp()) + str(self.clientId)).encode('utf-8')
