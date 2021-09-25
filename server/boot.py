@@ -1,6 +1,5 @@
 import asyncio
 import Message.lib
-import websockets
 
 HOST = '127.0.0.1'
 PORT = 6943

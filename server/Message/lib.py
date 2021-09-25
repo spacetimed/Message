@@ -17,6 +17,13 @@ from typing import Union
     To Do:
     - Show login prompt
     - Make database tables (`users`, `messages[?]`)
+    Bugs:
+    - [FIXED] If only 2 clients in room, and client 0 refreshes, it does not display any information to client 1 
+                              []
+            0 -> Join  	      [0]
+            1 -> Join	      [0,1]
+            0 -> Disconnect	  [1]
+            1 -> Join	      [1,1]
 """
 
 class Server:
@@ -26,14 +33,16 @@ class Server:
         self.port: int = port
         self.start: websockets.WebSocketServer = websockets.serve(self.handleNewClient, self.host, self.port)
         self.clients: List[Type[Client]] = []
+        self.clientIdIndex: int = 0
         self.log: Type[Logger] = Logger(f'{__name__}/{__class__.__name__}')
         if self.start is not None:
             self.log('Started! Listening...')
 
     async def handleNewClient(self, websocket: Any, path: Any) -> None:
-        clientId: int = len(self.clients)
+        clientId: int = self.clientIdIndex
+        self.clientIdIndex += 1
         self.clients.append(Client(clientId, websocket, path, self))
-        await self.clients[clientId].serve()
+        await self.clients[-1].serve()
 
     async def handleDisconnect(self, clientObject: Any, clientId: int) -> None:
         if clientObject in self.clients:
@@ -43,7 +52,7 @@ class Server:
         return None
 
 
-class Client():
+class Client:
 
     def __init__(self, clientId: int, websocket: Any, path: Any, MasterServer: Type[Server]) -> None:
         self.clientId: int = clientId
