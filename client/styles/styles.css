@@ -76,13 +76,13 @@ body {
 
 .message_container > .content > .contentText > ul > li > a.contentDate {
     font-weight:700;
-    font-size:12px;
+    font-size:10px;
     color:#cfcfff85;
 }
 
 .message_container > .content > .contentText > ul > li > a.contentMisc {
     font-weight:700;
-    font-size:12px;
+    font-size:10px;
     color: #ffffff;
 }
 .message_container > .content > .contentText > ul > li > span.contentAuthor {

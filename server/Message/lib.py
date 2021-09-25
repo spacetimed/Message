@@ -17,7 +17,6 @@ from typing import Any
     - Make database tables (`users`, `messages[?]`)
 """
 
-
 class Server:
     
     def __init__(self, host: str, port: int) -> None:
@@ -52,6 +51,9 @@ class Client():
         self.clientHash: str = self.makeClientHash()
         self.log: Type[Logger] = Logger(f'{__name__}/{__class__.__name__}::{self.clientId}')
         self.log('New connection!')
+        self.commands = {
+            'users' : self.handleUsersCommand,
+        }
 
     async def serve(self) -> None:
         handshake = await self.makeHandshake()
@@ -64,10 +66,19 @@ class Client():
             self.log('Disconnect')
             await self.MasterServer.handleDisconnect(self, self.clientId)
 
+    def CommandHandler(commandFunc) -> None:
+        async def CommandWrapper(self):
+            return await self.send('message', {'author' : 'Server', 'message' : await commandFunc(self)})
+        return CommandWrapper
+
     async def makeHandshake(self) -> str:
         handshake = {'clientId' : self.clientId, 'clientHash': self.clientHash}
         handshake = json.dumps(handshake)
         return handshake
+
+    @CommandHandler
+    async def handleUsersCommand(self) -> str:
+        return f'Number of active users: {str(len(self.MasterServer.clients))}'
 
     async def send(self, type: str, data: dict) -> None:
         local = {'type' : type, 'data' : data}
@@ -77,6 +88,8 @@ class Client():
 
     async def recv(self, message: str) -> None:
         self.log(f'RECV <= {message}')
+        if(message[0] == '/' and message[1:] in self.commands):
+            await self.commands[message[1:]]()
 
     def makeClientHash(self) -> str:
         toEncode = (str(getTimestamp()) + str(self.clientId)).encode('utf-8')

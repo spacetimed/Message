@@ -24,6 +24,10 @@ const addDate = () => {
     document.getElementsByClassName('contentMessages')[0].append(element);
 }
 
+const handleMessageRecv = (data) => {
+    addMessage(data.message, false, data.author);
+};
+
 const addMessage = (message, misc = false, author = false) => {
     let element = document.createElement('li');
     let contentText = document.getElementsByClassName('contentText')[0];
@@ -40,6 +44,8 @@ const addMessage = (message, misc = false, author = false) => {
         miscB.className = 'contentMessage';
         miscA.innerText = author + ':';
         miscB.innerText = message;
+        if(author == 'Server')
+            miscA.style.color = '#7d7dfd';
         element.append(miscA);
         element.append(miscB);
     } else {
@@ -52,6 +58,7 @@ const addMessage = (message, misc = false, author = false) => {
 window.addEventListener('DOMContentLoaded', () => {
     const handlers = {
         'handshake' : handleHandshake,
+        'message' : handleMessageRecv,
     }
     addDate();
     addMessage('Connecting...', true);
