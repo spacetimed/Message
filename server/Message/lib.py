@@ -90,6 +90,12 @@ class Client():
         self.log(f'RECV <= {message}')
         if(message[0] == '/' and message[1:] in self.commands):
             await self.commands[message[1:]]()
+        else:
+            if(len(self.MasterServer.clients) > 1):
+                for client in self.MasterServer.clients:
+                    if client.clientId != self.clientId:
+                        messageObject = {'author' : self.clientHash, 'message' : message}
+                        await client.send('message', messageObject)
 
     def makeClientHash(self) -> str:
         toEncode = (str(getTimestamp()) + str(self.clientId)).encode('utf-8')

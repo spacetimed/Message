@@ -28,6 +28,24 @@ const handleMessageRecv = (data) => {
     addMessage(data.message, false, data.author);
 };
 
+const userColors = {
+    'a' : '#ff9a9a',
+    'b' : '#ff9a9a',
+    'c' : '#ff9a9a',
+    'd' : '#ff9a9a',
+    'e' : '#9affe8',
+    'f' : '#9affe8',
+    '1' : '#9affe8',
+    '2' : '#9affe8',
+    '3' : '#f99aff',
+    '4' : '#f99aff',
+    '5' : '#f99aff',
+    '6' : '#f99aff',
+    '7' : '#7fd06b',
+    '8' : '#7fd06b',
+    '9' : '#7fd06b',
+}
+
 const addMessage = (message, misc = false, author = false) => {
     let element = document.createElement('li');
     let contentText = document.getElementsByClassName('contentText')[0];
@@ -42,10 +60,12 @@ const addMessage = (message, misc = false, author = false) => {
         let miscB = document.createElement('span');
         miscA.className = 'contentAuthor';
         miscB.className = 'contentMessage';
-        miscA.innerText = author + ':';
+        miscA.innerText = author + ': ';
         miscB.innerText = message;
         if(author == 'Server')
             miscA.style.color = '#7d7dfd';
+        if(author[0] in userColors)
+            miscA.style.color = userColors[author[0]]
         element.append(miscA);
         element.append(miscB);
     } else {
@@ -65,6 +85,8 @@ window.addEventListener('DOMContentLoaded', () => {
     ws = new WebSocket("ws://127.0.0.1:6943/");
     const input = document.getElementById('chatbar_input');
     input.addEventListener('keydown', function(e) {
+        if(ws.readyState != 1)
+            return;
         if(e.code != 'Enter')
             return;
         const message = this.value;
