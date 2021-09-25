@@ -7,7 +7,7 @@ const handleHandshake = (data) => {
     clientId = data.clientId;
     clientHash = data.clientHash;
     document.getElementsByClassName('loading')[0].style.display = 'none';
-    addMessage('Welcome, ' + clientHash + '!');
+    addMessage('Welcome, ' + clientHash + '!', true);
 }
 
 const addDate = () => {
@@ -24,18 +24,29 @@ const addDate = () => {
     document.getElementsByClassName('contentMessages')[0].append(element);
 }
 
-const addMessage = (message, misc = false) => {
+const addMessage = (message, misc = false, author = false) => {
     let element = document.createElement('li');
+    let contentText = document.getElementsByClassName('contentText')[0];
     element.classname = 'message';
     if(misc) {
         let miscA = document.createElement('a');
         miscA.innerText = message;
         miscA.className = 'contentMisc';
         element.append(miscA);
+    } else if(author) {
+        let miscA = document.createElement('span');
+        let miscB = document.createElement('span');
+        miscA.className = 'contentAuthor';
+        miscB.className = 'contentMessage';
+        miscA.innerText = author + ':';
+        miscB.innerText = message;
+        element.append(miscA);
+        element.append(miscB);
     } else {
         element.innerText = message;
     }
     document.getElementsByClassName('contentMessages')[0].append(element);
+    contentText.scrollTop = contentText.scrollHeight;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -45,9 +56,16 @@ window.addEventListener('DOMContentLoaded', () => {
     addDate();
     addMessage('Connecting...', true);
     ws = new WebSocket("ws://127.0.0.1:6943/");
-    document.getElementById('chatbar_input').addEventListener('input', function(e) {
-        console.log(this.value);
-        ws.send(this.value);
+    const input = document.getElementById('chatbar_input');
+    input.addEventListener('keydown', function(e) {
+        if(e.code != 'Enter')
+            return;
+        const message = this.value;
+        if(message.length <= 0)
+            return;
+        this.value = '';
+        ws.send(message);
+        addMessage(message, false, clientHash);
     });
     ws.addEventListener('message', (event) => { 
         dataBlock = JSON.parse(event.data);
