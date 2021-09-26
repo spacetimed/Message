@@ -1,6 +1,7 @@
 import asyncio
 import websockets
 import json
+import aiosqlite
 
 from colorama import Fore, Back, Style
 from time import time as getTimestamp
@@ -15,15 +16,11 @@ from typing import Union
 
 """
     To Do:
-    - Show login prompt
-    - Make database tables (`users`, `messages[?]`)
-    Bugs:
-    - [FIXED] If only 2 clients in room, and client 0 refreshes, it does not display any information to client 1 
-                              []
-            0 -> Join  	      [0]
-            1 -> Join	      [0,1]
-            0 -> Disconnect	  [1]
-            1 -> Join	      [1,1]
+        - /identify command (e.g. /identify man)
+        - if account exists, asks for passkey (new prompt for this)
+        - authenticates and updates username/color "man*"
+        - Make database tables (`users` -> `username`, `password`, `passkey`)
+        - databases / sqlite?
 """
 
 class Server:
@@ -35,6 +32,7 @@ class Server:
         self.clients: List[Type[Client]] = []
         self.clientIdIndex: int = 0
         self.log: Type[Logger] = Logger(f'{__name__}/{__class__.__name__}')
+        self.database = None
         if self.start is not None:
             self.log('Started! Listening...')
 
@@ -63,23 +61,10 @@ class Client:
         self.log: Type[Logger] = Logger(f'{__name__}/{__class__.__name__}::{self.clientId}')
         self.log('New connection!')
         self.commands = {
-            'users' : self.handleUsersCommand,
+            'users'    : self.handleUsersCommand,
+            'id'       : self.handleIdCommand,
+            'identify' : self.handleIdentify,
         }
-
-    def BroadcastHandler(commandFunc) -> None:
-        async def BroadcastWrapper(self, *args, **kwargs) -> None:
-            if(len(self.MasterServer.clients) > 1):
-                for client in self.MasterServer.clients:
-                    if client.clientId != self.clientId:
-                        messageObject: Dict = await commandFunc(self, *args)
-                        await client.send('message', messageObject)
-            return None
-        return BroadcastWrapper
-
-    def CommandHandler(commandFunc) -> None:
-        async def CommandWrapper(self) -> None:
-            return await self.send('message', {'author' : 'Server', 'message' : await commandFunc(self)})
-        return CommandWrapper
 
     async def serve(self) -> None:
         handshake: Dict = await self.makeHandshake()
@@ -94,14 +79,34 @@ class Client:
             await self.handleGoodbye()
             await self.MasterServer.handleDisconnect(self, self.clientId)
 
-    async def makeHandshake(self) -> str:
-        handshake: Union[Dict, str] = {'clientId' : self.clientId, 'clientHash': self.clientHash}
-        handshake = json.dumps(handshake)
-        return handshake
+    def BroadcastHandler(commandFunc) -> None:
+        async def BroadcastWrapper(self, *args, **kwargs) -> None:
+            if(len(self.MasterServer.clients) > 1):
+                for client in self.MasterServer.clients:
+                    if client.clientId != self.clientId:
+                        messageObject: Dict = await commandFunc(self, *args)
+                        await client.send('message', messageObject)
+            return None
+        return BroadcastWrapper
+
+    def CommandHandler(commandFunc) -> None:
+        async def CommandWrapper(self, data) -> None:
+            messageObject: Union[Dict, None] = await commandFunc(self, data)
+            if messageObject is not None:
+                return await self.send('message', messageObject)
+        return CommandWrapper
 
     @CommandHandler
-    async def handleUsersCommand(self) -> str:
-        return f'Number of active users: {str(len(self.MasterServer.clients))}'
+    async def handleUsersCommand(self, data) -> str:
+        message: Union[Dict, str] = f'Number of active users: {str(len(self.MasterServer.clients))}'
+        message = {'author' : 'Server', 'message' : message}
+        return(message)
+
+    @CommandHandler
+    async def handleIdCommand(self, data) -> str:
+        message: Union[Dict, str] = f'Your ID is: {str(self.clientId)}'
+        message = {'author' : 'Server', 'message' : message}
+        return(message)
 
     @BroadcastHandler
     async def handleWelcome(self) -> str:
@@ -120,18 +125,41 @@ class Client:
         message: Dict = {'author' : self.clientHash, 'message' : message}
         return(message)
 
+    @CommandHandler
+    async def handleIdentify(self, data) -> Union[None, Dict]:
+        if(len(data) != 1):
+            message: Dict = {'author' : 'Server', 'message' : 'Incorrect syntax. (e.g. /identify username)'}
+            return(message)
+        username = data[0]
+        if username is not None:
+            async with aiosqlite.connect('Message.db') as db:
+                async with db.execute('SELECT * FROM accounts WHERE `username` = :username', {'username' : username}) as cursor:
+                    result = await cursor.fetchall()
+                    if len(result) > 0:
+                        message: Dict = {'author' : 'Server', 'message' : 'Authentication required...'}
+                        return(message)
+        message: Dict = {'author' : 'Server', 'message' : 'User does not exist.'}
+        return(message)
+
+                        
     async def send(self, type: str, data: dict) -> None:
         local: Union[Dict, str] = {'type' : type, 'data' : data}
         local = json.dumps(local)
-        self.log(f'SEND => {local}')
+        #self.log(f'SEND => {local}')
         await self.websocket.send(local)
 
     async def recv(self, message: str) -> None:
-        self.log(f'RECV <= {message}')
-        if(message[0] == '/' and message[1:] in self.commands):
-            await self.commands[message[1:]]()
+        #self.log(f'RECV <= {message}')
+        if(message[0] == '/' and message.split(' ')[0][1:] in self.commands):
+            data = message.split(' ')
+            await self.commands[data[0][1:]](data[1:])
         else:
             await self.handleSendMessage(message)
+
+    async def makeHandshake(self) -> str:
+        handshake: Union[Dict, str] = {'clientId' : self.clientId, 'clientHash': self.clientHash}
+        handshake = json.dumps(handshake)
+        return handshake
 
     def makeClientHash(self) -> str:
         toEncode: bytes = (str(getTimestamp()) + str(self.clientId)).encode('utf-8')
