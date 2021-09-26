@@ -161,11 +161,11 @@ class Client:
     async def send(self, type: str, data: Dict) -> None:
         local: Union[Dict, str] = {'type' : type, 'data' : data}
         local = json.dumps(local)
-        self.log(f'SEND => {local}')
+        #self.log(f'SEND => {local}')
         await self.websocket.send(local)
 
     async def recv(self, message: str) -> None:
-        self.log(f'RECV <= {message}')
+        #self.log(f'RECV <= {message}')
         if(message[0] == '/' and message.split(' ')[0][1:] in self.commands):
             data: List[str] = message.split(' ')
             await self.commands[data[0][1:]](data[1:])
