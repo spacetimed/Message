@@ -68,7 +68,6 @@ const addMessage = (message, misc = false, author = false) => {
         miscA.className = 'contentAuthor';
         miscB.className = 'contentMessage';
         if(author[0] == '_') {
-            console.log('Dope');
             author = author.substr(1) + '✓';
         }
         miscA.innerText = author + ': ';
