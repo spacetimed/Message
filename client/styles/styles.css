@@ -89,6 +89,57 @@ body {
     font-weight:700;
 }
 
+.message_container > .content > div.contentAuth {
+    margin-left:20%;
+    margin-top:10%;
+    width:60%;
+    background-color:white;
+    position:absolute;
+    top:0;
+    left:0;
+    border-radius:6px;
+    box-shadow:0px 2px 3px rgba(0,0,0,0.5);
+    z-index:10;
+    display:none;
+}
+
+.message_container > .content > div.contentAuth > h1 {
+    margin:0;
+    padding:0;
+    padding:15px;
+    font-size:18px;
+    border-bottom:1px solid rgba(0,0,0,0.1);
+}
+
+.message_container > .content > div.contentAuth > input {
+    outline:none;
+    border:1px solid #000;
+    margin:0 auto;
+    width:80%;
+    display:flex;
+    padding:10px;
+    border-radius:6px;
+    margin-top:10px;
+    margin-bottom:20px;
+}
+
+.message_container > .content > div.contentAuth > button {
+    display: flex;
+    text-align: center;
+    margin: 0 auto;
+    padding: 5px;
+    padding-left: 20px;
+    padding-right: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #63415f;
+    background-color: #d7cfe4;
+    border-radius: 7px;
+    cursor:pointer;
+}
+
+.message_container > .content > div.contentAuth > button:hover {
+    opacity:0.8;
+}
 
 .message_container > .chatbar {
     width:100%;

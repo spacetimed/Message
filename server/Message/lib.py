@@ -18,8 +18,8 @@ from typing import Union
     To Do:
         - /identify command (e.g. /identify man)
         - if account exists, asks for passkey (new prompt for this)
-        - authenticates and updates username/color "man*"
-        - Make database tables (`users` -> `username`, `password`, `passkey`)
+        - authenticates and updates username/color "man </(checkmark!)"
+        - Make database tables (`users` -> `username`, `password`)
         - databases / sqlite?
 """
 
@@ -60,6 +60,7 @@ class Client:
         self.clientHash: str = self.makeClientHash()
         self.log: Type[Logger] = Logger(f'{__name__}/{__class__.__name__}::{self.clientId}')
         self.log('New connection!')
+        self.tempUsername = None
         self.commands = {
             'users'    : self.handleUsersCommand,
             'id'       : self.handleIdCommand,
@@ -136,25 +137,53 @@ class Client:
                 async with db.execute('SELECT * FROM accounts WHERE `username` = :username', {'username' : username}) as cursor:
                     result = await cursor.fetchall()
                     if len(result) > 0:
-                        message: Dict = {'author' : 'Server', 'message' : 'Authentication required...'}
+                        self.tempUsername = username
+                        message: Dict = {'author' : 'Server', 'message' : 'Authentication required...', 'authRequired' : True}
                         return(message)
         message: Dict = {'author' : 'Server', 'message' : 'User does not exist.'}
         return(message)
 
+    @CommandHandler
+    async def handleIdentifyPassword(self, data) -> None:
+        if len(data) > 0 and self.tempUsername is not None:
+            tempPassword = sha256(data.encode('utf-8')).hexdigest()
+            async with aiosqlite.connect('Message.db') as db:
+                async with db.execute('SELECT * FROM accounts WHERE `username` = :username AND `password` = :password', {'username' : self.tempUsername, 'password' : tempPassword}) as cursor:
+                    result = await cursor.fetchall()
+                    if len(result) > 0:
+                        self.clientHash = '_' + self.tempUsername.lower()
+                        handshake: Dict = await self.makeHandshake()
+                        await self.send('handshake', handshake)
+                        message: Dict = {'author' : 'Server', 'message' : 'Success!'}
+                        return(message)
+        message: Dict = {'author' : 'Server', 'message' : 'Authentication failed.'}
+        return(message)
+
+    def isJson(self, object):
+        try:
+            json.loads(object)
+        except ValueError as e:
+            return False
+        return True
                         
     async def send(self, type: str, data: dict) -> None:
         local: Union[Dict, str] = {'type' : type, 'data' : data}
         local = json.dumps(local)
-        #self.log(f'SEND => {local}')
+        self.log(f'SEND => {local}')
         await self.websocket.send(local)
 
     async def recv(self, message: str) -> None:
-        #self.log(f'RECV <= {message}')
+        self.log(f'RECV <= {message}')
         if(message[0] == '/' and message.split(' ')[0][1:] in self.commands):
             data = message.split(' ')
             await self.commands[data[0][1:]](data[1:])
         else:
-            await self.handleSendMessage(message)
+            if self.isJson(message):
+                recvObj = json.loads(message)
+                if 'auth' in recvObj:
+                    await self.handleIdentifyPassword(recvObj['auth'])
+            else:
+                await self.handleSendMessage(message)
 
     async def makeHandshake(self) -> str:
         handshake: Union[Dict, str] = {'clientId' : self.clientId, 'clientHash': self.clientHash}
