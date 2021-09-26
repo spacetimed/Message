@@ -7,21 +7,13 @@ from colorama import Fore, Back, Style
 from time import time as getTimestamp
 from hashlib import sha256
 
-from typing import Dict
+from typing import Callable, Dict
 from typing import List
 from typing import Optional
 from typing import Type
 from typing import Any
 from typing import Union
-
-"""
-    To Do:
-        - /identify command (e.g. /identify man)
-        - if account exists, asks for passkey (new prompt for this)
-        - authenticates and updates username/color "man </(checkmark!)"
-        - Make database tables (`users` -> `username`, `password`)
-        - databases / sqlite?
-"""
+from typing import Iterable
 
 class Server:
     
@@ -60,8 +52,8 @@ class Client:
         self.clientHash: str = self.makeClientHash()
         self.log: Type[Logger] = Logger(f'{__name__}/{__class__.__name__}::{self.clientId}')
         self.log('New connection!')
-        self.tempUsername = None
-        self.commands = {
+        self.tempUsername: Union[None, str] = None
+        self.commands: Dict[str, Callable] = {
             'users'    : self.handleUsersCommand,
             'id'       : self.handleIdCommand,
             'identify' : self.handleIdentify,
@@ -97,18 +89,6 @@ class Client:
                 return await self.send('message', messageObject)
         return CommandWrapper
 
-    @CommandHandler
-    async def handleUsersCommand(self, data) -> str:
-        message: Union[Dict, str] = f'Number of active users: {str(len(self.MasterServer.clients))}'
-        message = {'author' : 'Server', 'message' : message}
-        return(message)
-
-    @CommandHandler
-    async def handleIdCommand(self, data) -> str:
-        message: Union[Dict, str] = f'Your ID is: {str(self.clientId)}'
-        message = {'author' : 'Server', 'message' : message}
-        return(message)
-
     @BroadcastHandler
     async def handleWelcome(self) -> str:
         message: Union[Dict, str] = self.clientHash + ' has entered the chat.'
@@ -122,36 +102,48 @@ class Client:
         return(message)
 
     @BroadcastHandler
-    async def handleSendMessage(self, message) -> None:
-        message: Dict = {'author' : self.clientHash, 'message' : message}
+    async def handleSendMessage(self, message) -> str:
+        message: Union[Dict, str] = {'author' : self.clientHash, 'message' : message}
         return(message)
 
     @CommandHandler
-    async def handleIdentify(self, data) -> Union[None, Dict]:
+    async def handleUsersCommand(self, data: Union[None, str, List[str]]) -> str:
+        message: Union[Dict, str] = f'Number of active users: {str(len(self.MasterServer.clients))}'
+        message = {'author' : 'Server', 'message' : message}
+        return(message)
+
+    @CommandHandler
+    async def handleIdCommand(self, data: Union[None, str, List[str]]) -> str:
+        message: Union[Dict, str] = f'Your ID is: {str(self.clientId)}'
+        message = {'author' : 'Server', 'message' : message}
+        return(message)
+
+    @CommandHandler
+    async def handleIdentify(self, data: Union[None, str, List[str]]) -> Union[None, Dict]:
         if(len(data) != 1):
             message: Dict = {'author' : 'Server', 'message' : 'Incorrect syntax. (e.g. /identify username)'}
             return(message)
-        username = data[0]
+        username: str = data[0]
         if username is not None:
             async with aiosqlite.connect('Message.db') as db:
                 async with db.execute('SELECT * FROM accounts WHERE `username` = :username', {'username' : username}) as cursor:
-                    result = await cursor.fetchall()
+                    result: Iterable[Any] = await cursor.fetchall()
                     if len(result) > 0:
-                        self.tempUsername = username
+                        self.tempUsername: str = username
                         message: Dict = {'author' : 'Server', 'message' : 'Authentication required...', 'authRequired' : True}
                         return(message)
         message: Dict = {'author' : 'Server', 'message' : 'User does not exist.'}
         return(message)
 
     @CommandHandler
-    async def handleIdentifyPassword(self, data) -> None:
+    async def handleIdentifyPassword(self, data: Union[None, str, List[str]]) -> Union[None, Dict]:
         if len(data) > 0 and self.tempUsername is not None:
-            tempPassword = sha256(data.encode('utf-8')).hexdigest()
+            tempPassword: str = sha256(data.encode('utf-8')).hexdigest()
             async with aiosqlite.connect('Message.db') as db:
                 async with db.execute('SELECT * FROM accounts WHERE `username` = :username AND `password` = :password', {'username' : self.tempUsername, 'password' : tempPassword}) as cursor:
-                    result = await cursor.fetchall()
+                    result: Iterable[Any] = await cursor.fetchall()
                     if len(result) > 0:
-                        self.clientHash = '_' + self.tempUsername.lower()
+                        self.clientHash: str = '_' + self.tempUsername.lower()
                         handshake: Dict = await self.makeHandshake()
                         await self.send('handshake', handshake)
                         message: Dict = {'author' : 'Server', 'message' : 'Success!'}
@@ -159,14 +151,14 @@ class Client:
         message: Dict = {'author' : 'Server', 'message' : 'Authentication failed.'}
         return(message)
 
-    def isJson(self, object):
+    def isJson(self, object: str) -> bool:
         try:
             json.loads(object)
         except ValueError as e:
             return False
         return True
                         
-    async def send(self, type: str, data: dict) -> None:
+    async def send(self, type: str, data: Dict) -> None:
         local: Union[Dict, str] = {'type' : type, 'data' : data}
         local = json.dumps(local)
         self.log(f'SEND => {local}')
@@ -175,11 +167,11 @@ class Client:
     async def recv(self, message: str) -> None:
         self.log(f'RECV <= {message}')
         if(message[0] == '/' and message.split(' ')[0][1:] in self.commands):
-            data = message.split(' ')
+            data: List[str] = message.split(' ')
             await self.commands[data[0][1:]](data[1:])
         else:
             if self.isJson(message):
-                recvObj = json.loads(message)
+                recvObj: Dict = json.loads(message)
                 if 'auth' in recvObj:
                     await self.handleIdentifyPassword(recvObj['auth'])
             else:
